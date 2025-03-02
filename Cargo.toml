@@ -1,0 +1,11 @@
+[package]
+name = "fastq-scrambler"
+version = "0.1.0"
+edition = "2024"
+authors = ["Paul-Christian Volkmer"]
+description = "Application to scramble FASTQ files to provide non-sensitive data for development purposes"
+license = "GPL-3"
+readme = "README.md"
+
+[dependencies]
+regex = "1.11"
