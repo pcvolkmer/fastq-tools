@@ -252,7 +252,7 @@ mod tests {
     }
 
     #[test]
-    fn should_return_header_string() {
+    fn should_return_casava18_header_string() {
         let given = "@EAS139:136:FC706VJ:2:2104:15343:197393 1:Y:18:ATCACG";
         let actual = given.parse::<Header>();
 
@@ -263,21 +263,47 @@ mod tests {
     }
 
     #[test]
-    fn should_return_scrambled_sequence_string_seed1() {
-        let given = "GATTTGGGGTTCAAAGCAGTATCGATCAAATAGTAAATCCATTTGTTCAACTCACAGTTT";
-        let actual = scramble_sequence(given, 1);
-        let expected = "CGATCTGGCGCGCAGCGCCGGAGCGAGCAGAGCGTAGATGCATCCGCGCGGCGCGCCGTT";
+    fn should_return_other_parsed_casava18_header() {
+        let given = "@EAS139:136:FC706VJ:2:2104:15343:197393 1:Y:18:NGAAGCAA+NATGCTGA";
 
-        assert_eq!(expected, actual);
+        if let Ok(Header::Casava18(actual)) = given.parse::<Header>() {
+            assert_eq!(actual.instrument_name, "EAS139");
+            assert_eq!(actual.run_id, 136);
+            assert_eq!(actual.flowcell_id, "FC706VJ");
+            assert_eq!(actual.flowcell_lane, 2);
+            assert_eq!(actual.tile_number, 2104);
+            assert_eq!(actual.x, 15343);
+            assert_eq!(actual.y, 197393);
+            assert_eq!(actual.pair_member, Pair::PairedEnd);
+            assert_eq!(actual.filtered, Filtered::Y);
+            assert_eq!(actual.control_bits, 18);
+            assert_eq!(actual.index_sequence, "NGAAGCAA+NATGCTGA");
+        } else {
+            panic!("Failed to parse FASTQ header");
+        }
     }
 
     #[test]
-    fn should_return_scrambled_sequence_string_seed42() {
-        let given = "GATTTGGGGTTCAAAGCAGTATCGATCAAATAGTAAATCCATTTGTTCAACTCACAGTTT";
-        let actual = scramble_sequence(given, 42);
-        let expected = "GTTTCTGGTTCGCAGCGCTCTCGCTCGCATCTTCTATCTGCTTCTTCGCCGCGCGCTTTA";
+    fn should_return_other_casava18_header_string() {
+        let given = "@EAS139:136:FC706VJ:2:2104:15343:197393 1:Y:18:NGAAGCAA+NATGCTGA";
+        let actual = given.parse::<Header>();
 
-        assert_eq!(expected, actual);
+        assert!(actual.is_ok());
+
+        let actual = actual.unwrap();
+        assert_eq!(given, actual.to_string());
+    }
+
+    #[test]
+    fn should_return_other_scrambled_casava18_header_string() {
+        let given = "@EAS139:136:FC706VJ:2:2104:15343:197393 1:Y:18:NGAAGCAA+NATGCTGA";
+        let actual = given.parse::<Header>();
+        let expected = "@TEST73:273:CQEAACM:8:503:15353:197403 1:Y:18:NCGGCGCA+NGACGCCG";
+
+        assert!(actual.is_ok());
+
+        let actual = actual.unwrap().scramble();
+        assert_eq!(expected, actual.to_string().as_str());
     }
 
     #[test]
@@ -307,5 +333,23 @@ mod tests {
 
         let actual = actual.unwrap();
         assert_eq!(given, actual.to_string());
+    }
+
+    #[test]
+    fn should_return_scrambled_sequence_string_seed1() {
+        let given = "GATTTGGGGTTCAAAGCAGTATCGATCAAATAGTAAATCCATTTGTTCAACTCACAGTTT";
+        let actual = scramble_sequence(given, 1);
+        let expected = "CGATCTGGCGCGCAGCGCCGGAGCGAGCAGAGCGTAGATGCATCCGCGCGGCGCGCCGTT";
+
+        assert_eq!(expected, actual);
+    }
+
+    #[test]
+    fn should_return_scrambled_sequence_string_seed42() {
+        let given = "GATTTGGGGTTCAAAGCAGTATCGATCAAATAGTAAATCCATTTGTTCAACTCACAGTTT";
+        let actual = scramble_sequence(given, 42);
+        let expected = "GTTTCTGGTTCGCAGCGCTCTCGCTCGCATCTTCTATCTGCTTCTTCGCCGCGCGCTTTA";
+
+        assert_eq!(expected, actual);
     }
 }
