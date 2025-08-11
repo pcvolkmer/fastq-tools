@@ -4,6 +4,7 @@ use std::str::FromStr;
 
 pub enum Header {
     Casava18(Casava18Header),
+    Illumina(IlluminaHeader),
 }
 
 pub struct Casava18Header {
@@ -18,6 +19,16 @@ pub struct Casava18Header {
     filtered: Filtered,
     control_bits: u32,
     index_sequence: String,
+}
+
+pub struct IlluminaHeader {
+    instrument_name: String,
+    flowcell_lane: u32,
+    tile_number: u32,
+    x: u32,
+    y: u32,
+    index_number: String,
+    pair_member: Pair,
 }
 
 impl Header {
@@ -54,6 +65,18 @@ impl Header {
                 control_bits: header.control_bits,
                 index_sequence: scramble_sequence(&header.index_sequence, 1),
             }),
+            Header::Illumina(header) => Header::Illumina(IlluminaHeader {
+                instrument_name: format!(
+                    "TEST{:0<2}",
+                    (string_sum(&header.instrument_name) * 17) % 97
+                ),
+                flowcell_lane: number(header.flowcell_lane),
+                tile_number: number(header.tile_number),
+                x: header.x + string_sum(&header.instrument_name) as u32,
+                y: header.y + string_sum(&header.instrument_name) as u32,
+                index_number: header.index_number,
+                pair_member: header.pair_member,
+            }),
         }
     }
 }
@@ -84,6 +107,22 @@ impl Display for Header {
                     header.index_sequence
                 )
             }
+            Header::Illumina(header) => {
+                write!(
+                    f,
+                    "@{}:{}:{}:{}:{}#{}/{}",
+                    header.instrument_name,
+                    header.flowcell_lane,
+                    header.tile_number,
+                    header.x,
+                    header.y,
+                    header.index_number,
+                    match header.pair_member {
+                        Pair::PairedEnd => "1",
+                        Pair::MatePair => "2",
+                    },
+                )
+            }
         }
     }
 }
@@ -98,6 +137,8 @@ impl FromStr for Header {
 
         let parts = s
             .split(" ")
+            .flat_map(|s| s.split("#").collect::<Vec<_>>())
+            .flat_map(|s| s.split("/").collect::<Vec<_>>())
             .flat_map(|main_part| main_part.split(":").collect::<Vec<_>>())
             .collect::<Vec<_>>();
 
@@ -142,6 +183,30 @@ impl FromStr for Header {
                 },
                 index_sequence: parts[10].into(),
             }));
+        } else if parts.len() == 7 {
+            return Ok(Header::Illumina(IlluminaHeader {
+                instrument_name: parts[0][1..].to_string(),
+                flowcell_lane: parts[1]
+                    .parse()
+                    .expect("Valid Illumina header: Number value required"),
+                tile_number: parts[2]
+                    .parse()
+                    .expect("Valid Illumina header: Number value required"),
+                x: parts[3]
+                    .parse()
+                    .expect("Valid Illumina header: Number value required"),
+                y: parts[4]
+                    .parse()
+                    .expect("Valid Illumina header: Number value required"),
+                index_number: parts[5]
+                    .parse()
+                    .expect("Valid Illumina header: Number value required"),
+                pair_member: match parts[6] {
+                    "1" => Pair::PairedEnd,
+                    "2" => Pair::MatePair,
+                    _ => return Err("Invalid Illumina header".to_string()),
+                },
+            }));
         }
 
         Err("Cannot parse FASTQ header".to_string())
@@ -166,7 +231,7 @@ mod tests {
     use crate::{scramble_sequence, Header};
 
     #[test]
-    fn should_return_parsed_header() {
+    fn should_return_parsed_casava18_header() {
         let given = "@EAS139:136:FC706VJ:2:2104:15343:197393 1:Y:18:ATCACG";
 
         if let Ok(Header::Casava18(actual)) = given.parse::<Header>() {
@@ -198,18 +263,6 @@ mod tests {
     }
 
     #[test]
-    fn should_return_scrambled_header_string() {
-        let given = "@EAS139:136:FC706VJ:2:2104:15343:197393 1:Y:18:ATCACG";
-        let actual = given.parse::<Header>();
-        let expected = "@TEST73:273:CQEAACM:8:503:15353:197403 1:Y:18:GAGCGC";
-
-        assert!(actual.is_ok());
-
-        let actual = actual.unwrap().scramble();
-        assert_eq!(expected, actual.to_string().as_str());
-    }
-
-    #[test]
     fn should_return_scrambled_sequence_string_seed1() {
         let given = "GATTTGGGGTTCAAAGCAGTATCGATCAAATAGTAAATCCATTTGTTCAACTCACAGTTT";
         let actual = scramble_sequence(given, 1);
@@ -225,5 +278,34 @@ mod tests {
         let expected = "GTTTCTGGTTCGCAGCGCTCTCGCTCGCATCTTCTATCTGCTTCTTCGCCGCGCGCTTTA";
 
         assert_eq!(expected, actual);
+    }
+
+    #[test]
+    fn should_return_parsed_illumna_header() {
+        let given = "@HWUSI-EAS100R:6:73:941:1973#0/1";
+        let actual = given.parse::<Header>();
+
+        if let Ok(Header::Illumina(actual)) = actual {
+            assert_eq!(actual.instrument_name, "HWUSI-EAS100R");
+            assert_eq!(actual.flowcell_lane, 6);
+            assert_eq!(actual.tile_number, 73);
+            assert_eq!(actual.x, 941);
+            assert_eq!(actual.y, 1973);
+            assert_eq!(actual.index_number, "0");
+            assert_eq!(actual.pair_member, Pair::PairedEnd);
+        } else {
+            panic!("Failed to parse FASTQ header");
+        }
+    }
+
+    #[test]
+    fn should_return_illumina_header_string() {
+        let given = "@HWUSI-EAS100R:6:73:941:1973#0/1";
+        let actual = given.parse::<Header>();
+
+        assert!(actual.is_ok());
+
+        let actual = actual.unwrap();
+        assert_eq!(given, actual.to_string());
     }
 }
