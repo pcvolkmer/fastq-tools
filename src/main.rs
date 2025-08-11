@@ -5,8 +5,10 @@ use crate::cli::{Args, Command};
 use crate::fastq::{Header, Pair};
 use clap::Parser;
 use console::Style;
+use flate2::read::GzDecoder;
 use itertools::Itertools;
 use regex::Regex;
+use std::io::{BufRead, BufReader};
 
 fn scramble_sequence(value: &str, seed: u32) -> String {
     let ahead_1 = Regex::new(r"T([ACG])").unwrap();
@@ -53,22 +55,37 @@ fn scramble_sequence(value: &str, seed: u32) -> String {
 
 fn main() {
     let args = Args::parse();
+    let stdin = std::io::stdin();
 
     match &args.command {
-        Command::Info => info(),
-        Command::Scramble => scramble(),
+        Command::Info => {
+            if args.decompress {
+                let gz_decoder = GzDecoder::new(stdin);
+                let buf_reader = BufReader::new(gz_decoder);
+                info(buf_reader)
+            } else {
+                info(BufReader::new(stdin))
+            }
+        }
+        Command::Scramble => {
+            if args.decompress {
+                let gz_decoder = GzDecoder::new(stdin);
+                let buf_reader = BufReader::new(gz_decoder);
+                scramble(buf_reader)
+            } else {
+                scramble(BufReader::new(stdin))
+            }
+        }
     }
 
     println!()
 }
 
-fn scramble() {
-    let stdin = std::io::stdin();
+fn scramble(mut reader: impl BufRead) {
     let mut buf = String::new();
 
     let mut line = 1;
-
-    while let Ok(n) = stdin.read_line(&mut buf) {
+    while let Ok(n) = reader.read_line(&mut buf) {
         if n == 0 {
             break;
         }
@@ -88,8 +105,7 @@ fn scramble() {
     }
 }
 
-fn info() {
-    let stdin = std::io::stdin();
+fn info(mut reader: impl BufRead) {
     let mut buf = String::new();
 
     let mut headers = vec![];
@@ -101,7 +117,7 @@ fn info() {
     let error_style = Style::new().bold().red();
 
     let mut line = 1;
-    while let Ok(n) = stdin.read_line(&mut buf) {
+    while let Ok(n) = reader.read_line(&mut buf) {
         if n == 0 {
             break;
         }
@@ -134,6 +150,11 @@ fn info() {
 
         line += 1;
         buf.clear();
+    }
+
+    if line == 1 {
+        println!("{}", error_style.apply_to("🔥 No valid input"));
+        return;
     }
 
     if line % 4 != 1 {
