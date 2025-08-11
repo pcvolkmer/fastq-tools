@@ -2,8 +2,10 @@ mod cli;
 mod fastq;
 
 use crate::cli::{Args, Command};
-use crate::fastq::Header;
+use crate::fastq::{Header, Pair};
 use clap::Parser;
+use console::Style;
+use itertools::Itertools;
 use regex::Regex;
 
 fn scramble_sequence(value: &str, seed: u32) -> String {
@@ -53,9 +55,7 @@ fn main() {
     let args = Args::parse();
 
     match &args.command {
-        Command::Info => {
-            println!("Not implemented yet");
-        }
+        Command::Info => info(),
         Command::Scramble => scramble(),
     }
 
@@ -86,4 +86,172 @@ fn scramble() {
         line += 1;
         buf.clear();
     }
+}
+
+fn info() {
+    let stdin = std::io::stdin();
+    let mut buf = String::new();
+
+    let mut headers = vec![];
+    let mut read_lens = vec![];
+    let mut quality_lens = vec![];
+
+    let headline_style = Style::new().bold();
+    let info_style = Style::new().bold().blue();
+    let error_style = Style::new().bold().red();
+
+    let mut line = 1;
+    while let Ok(n) = stdin.read_line(&mut buf) {
+        if n == 0 {
+            break;
+        }
+
+        if buf.starts_with("@") {
+            if let Ok(header) = buf.parse::<Header>() {
+                headers.push(header)
+            } else {
+                println!(
+                    "{}",
+                    error_style.apply_to(format!("🔥 Invalid header at line {}", line))
+                );
+            }
+        } else if buf.starts_with("+") {
+            // ignore optional description
+        } else if line % 4 == 0 {
+            // check if quality values differs from sequence values
+            if Some(&buf.trim().len()) != read_lens.last() {
+                println!(
+                    "{}",
+                    error_style
+                        .apply_to(format!("🔥 Invalid quality string length at line {}", line))
+                );
+                return;
+            }
+            quality_lens.push(buf.trim().len());
+        } else if line % 4 == 2 {
+            read_lens.push(buf.trim().len());
+        }
+
+        line += 1;
+        buf.clear();
+    }
+
+    if line % 4 != 1 {
+        println!(
+            "{}",
+            error_style.apply_to("🔥 File contains invalid or incomplete sequences")
+        );
+        return;
+    }
+
+    println!(
+        "{} {}",
+        info_style.apply_to("🛈 "),
+        headline_style.apply_to(format!("Found {} complete sequence sets", headers.len()))
+    );
+
+    // Instruments
+
+    println!(
+        "{} {}",
+        info_style.apply_to("🛈 "),
+        headline_style.apply_to("Unique instrument name(s):")
+    );
+    println!(
+        "{}",
+        headers
+            .iter()
+            .map(|header| header.instrument_name())
+            .sorted()
+            .chunk_by(|value| value.clone())
+            .into_iter()
+            .map(|g| format!("   {} ({})", g.0, g.1.count()))
+            .collect::<Vec<String>>()
+            .join("\n")
+    );
+
+    // Flowcell IDs
+
+    println!(
+        "{} {}",
+        info_style.apply_to("🛈 "),
+        headline_style.apply_to("Flowcell ID(s):")
+    );
+    println!(
+        "{}",
+        headers
+            .iter()
+            .filter_map(|header| header.flowcell_id())
+            .sorted()
+            .chunk_by(|value| value.clone())
+            .into_iter()
+            .map(|g| format!("   {} ({})", g.0, g.1.count()))
+            .collect::<Vec<String>>()
+            .join("\n")
+    );
+
+    // Flowcell Lanes
+
+    println!(
+        "{} {}",
+        info_style.apply_to("🛈 "),
+        headline_style.apply_to("Flowcell lane(s):")
+    );
+
+    println!(
+        "{}",
+        headers
+            .iter()
+            .map(|header| header.flowcell_lane())
+            .sorted()
+            .chunk_by(|value| value.to_string())
+            .into_iter()
+            .map(|g| format!("   {} ({})", g.0, g.1.count()))
+            .collect::<Vec<String>>()
+            .join("\n")
+    );
+
+    // Read Orders
+
+    println!(
+        "{} {}",
+        info_style.apply_to("🛈 "),
+        headline_style.apply_to("Read order(s):")
+    );
+
+    println!(
+        "{}",
+        headers
+            .iter()
+            .map(|header| match header.pair_member() {
+                Pair::PairedEnd => "R1",
+                Pair::MatePair => "R2",
+            })
+            .sorted()
+            .chunk_by(|value| value.to_string())
+            .into_iter()
+            .map(|g| format!("   {} ({})", g.0, g.1.count()))
+            .collect::<Vec<String>>()
+            .join("\n")
+    );
+
+    // Read Lengths
+
+    println!(
+        "{} {}",
+        info_style.apply_to("🛈 "),
+        headline_style.apply_to("Read length(s):")
+    );
+
+    println!(
+        "{}",
+        read_lens
+            .iter()
+            .sorted()
+            .chunk_by(|value| value.to_string())
+            .into_iter()
+            .map(|g| format!("   {} ({})", g.0, g.1.count()))
+            .collect::<Vec<String>>()
+            .join("\n")
+    )
 }

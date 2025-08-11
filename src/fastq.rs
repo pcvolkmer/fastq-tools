@@ -32,6 +32,34 @@ pub struct IlluminaHeader {
 }
 
 impl Header {
+    pub fn instrument_name(&self) -> String {
+        match self {
+            Header::Casava18(h) => h.instrument_name.clone(),
+            Header::Illumina(h) => h.instrument_name.clone(),
+        }
+    }
+
+    pub fn flowcell_id(&self) -> Option<String> {
+        match self {
+            Header::Casava18(h) => Some(h.flowcell_id.clone()),
+            Header::Illumina(_) => None,
+        }
+    }
+
+    pub fn flowcell_lane(&self) -> u32 {
+        match self {
+            Header::Casava18(h) => h.flowcell_lane,
+            Header::Illumina(h) => h.flowcell_lane,
+        }
+    }
+
+    pub fn pair_member(&self) -> Pair {
+        match self {
+            Header::Casava18(h) => h.pair_member.clone(),
+            Header::Illumina(h) => h.pair_member.clone(),
+        }
+    }
+
     pub fn scramble(self) -> Self {
         fn number(value: u32) -> u32 {
             value % 3 + value % 17 + value % 271 + value % 911
@@ -213,7 +241,7 @@ impl FromStr for Header {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum Pair {
     PairedEnd = 1,
     MatePair = 2,
