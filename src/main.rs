@@ -76,25 +76,16 @@ fn main() {
         _ => Box::new(BufReader::new(std::io::stdin())),
     };
 
+    let input: Box<dyn BufRead> = if args.decompress {
+        let gz_decoder = GzDecoder::new(input);
+        Box::new(BufReader::new(gz_decoder))
+    } else {
+        Box::new(input)
+    };
+
     match &args.command {
-        Command::Info => {
-            if args.decompress {
-                let gz_decoder = GzDecoder::new(input);
-                let buf_reader = BufReader::new(gz_decoder);
-                info(buf_reader)
-            } else {
-                info(BufReader::new(input))
-            }
-        }
-        Command::Scramble => {
-            if args.decompress {
-                let gz_decoder = GzDecoder::new(input);
-                let buf_reader = BufReader::new(gz_decoder);
-                scramble(buf_reader)
-            } else {
-                scramble(BufReader::new(input))
-            }
-        }
+        Command::Info => info(input),
+        Command::Scramble => scramble(input),
     }
 
     println!()
