@@ -8,6 +8,7 @@ use console::Style;
 use flate2::read::GzDecoder;
 use itertools::Itertools;
 use regex::Regex;
+use std::fs::File;
 use std::io::{BufRead, BufReader};
 
 fn scramble_sequence(value: &str, seed: u32) -> String {
@@ -55,25 +56,43 @@ fn scramble_sequence(value: &str, seed: u32) -> String {
 
 fn main() {
     let args = Args::parse();
-    let stdin = std::io::stdin();
+    let input: Box<dyn BufRead> = match args.input_file {
+        Some(input_file) => {
+            let file = match File::open(input_file) {
+                Ok(file) => file,
+                _ => {
+                    println!(
+                        "{}\n",
+                        Style::new()
+                            .bold()
+                            .red()
+                            .apply_to("🔥 Cannot open input file")
+                    );
+                    return;
+                }
+            };
+            Box::new(BufReader::new(file))
+        }
+        _ => Box::new(BufReader::new(std::io::stdin())),
+    };
 
     match &args.command {
         Command::Info => {
             if args.decompress {
-                let gz_decoder = GzDecoder::new(stdin);
+                let gz_decoder = GzDecoder::new(input);
                 let buf_reader = BufReader::new(gz_decoder);
                 info(buf_reader)
             } else {
-                info(BufReader::new(stdin))
+                info(BufReader::new(input))
             }
         }
         Command::Scramble => {
             if args.decompress {
-                let gz_decoder = GzDecoder::new(stdin);
+                let gz_decoder = GzDecoder::new(input);
                 let buf_reader = BufReader::new(gz_decoder);
                 scramble(buf_reader)
             } else {
-                scramble(BufReader::new(stdin))
+                scramble(BufReader::new(input))
             }
         }
     }

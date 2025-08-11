@@ -1,4 +1,5 @@
 use clap::{Parser, Subcommand};
+use std::path::PathBuf;
 
 #[derive(Parser)]
 #[command(author, version, about, long_about = None)]
@@ -6,10 +7,12 @@ use clap::{Parser, Subcommand};
 pub struct Args {
     #[command(subcommand)]
     pub(crate) command: Command,
+    #[arg(short = 'i', long = "input", help = "Input file (optional)")]
+    pub(crate) input_file: Option<PathBuf>,
     #[arg(
         short = 'd',
         long = "decompress",
-        help = "decompress input as gzip compressed data"
+        help = "Decompress input as gzip compressed data"
     )]
     pub(crate) decompress: bool,
 }

@@ -15,9 +15,10 @@ Commands:
   help      Print this message or the help of the given subcommand(s)
 
 Options:
-  -d, --decompress  decompress input as gzip compressed data
-  -h, --help        Print help
-  -V, --version     Print version
+  -i, --input <INPUT_FILE>  Input file (optional)
+  -d, --decompress          Decompress input as gzip compressed data
+  -h, --help                Print help
+  -V, --version             Print version
 ```
 
 ### Info
@@ -32,6 +33,11 @@ To use build-in decompression of input data, use the `--decompress`/`-d` option:
 
 ```shell
 cat file_fastq.gz | fastq-tools --decompress info
+```
+Using optional input file argument:
+
+```shell
+fastq-tools --decompress --input file_fastq.gz info
 ```
 
 This will result in output like
@@ -52,4 +58,10 @@ To use build-in decompression of input data, use the `--decompress`/`-d` option:
 
 ```shell
 cat file_fastq.gz | fastq-tools -d scramble | gzip > scrambled_fastq.gz
+```
+
+Using optional input file argument:
+
+```shell
+fastq-tools -d -i file_fastq.gz scramble | gzip > scrambled_fastq.gz
 ```
