@@ -1,8 +1,10 @@
 mod cli;
 mod fastq;
+mod metadata_file;
 
 use crate::cli::{Args, Command};
 use crate::fastq::{Header, Pair};
+use crate::metadata_file::MetadataFile;
 use clap::Parser;
 use console::Style;
 use flate2::read::GzDecoder;
@@ -10,6 +12,7 @@ use itertools::Itertools;
 use regex::Regex;
 use std::fs::File;
 use std::io::{BufRead, BufReader};
+use std::path::PathBuf;
 
 fn scramble_sequence(value: &str, seed: u32) -> String {
     let ahead_1 = Regex::new(r"T([ACG])").unwrap();
@@ -56,19 +59,61 @@ fn scramble_sequence(value: &str, seed: u32) -> String {
 
 fn main() {
     let args = Args::parse();
-    let input: Box<dyn BufRead> = match args.input_file {
+
+    let input_file = args.input_file;
+
+    match &args.command {
+        Command::Info => match input_reader(input_file, args.decompress) {
+            Ok(input) => info(input),
+            Err(err) => {
+                eprintln!(
+                    "{}\n",
+                    Style::new().bold().red().apply_to(format!("🔥 {err}"))
+                );
+            }
+        },
+        Command::GrzMetadata => match input_file {
+            Some(input_file) => {
+                let file_metadata = match MetadataFile::read_file(input_file, args.decompress) {
+                    Ok(file_metadata) => file_metadata,
+                    Err(err) => {
+                        eprintln!(
+                            "{}\n",
+                            Style::new().bold().red().apply_to(format!("🔥 {err}"))
+                        );
+                        return;
+                    }
+                };
+
+                println!(
+                    "{}\n",
+                    serde_json::to_string_pretty(&file_metadata).unwrap()
+                );
+            }
+            None => eprintln!(
+                "{}\n",
+                Style::new().bold().red().apply_to("🔥 No input file!")
+            ),
+        },
+        Command::Scramble => match input_reader(input_file, args.decompress) {
+            Ok(input) => scramble(input),
+            Err(err) => {
+                eprintln!(
+                    "{}\n",
+                    Style::new().bold().red().apply_to(format!("🔥 {err}"))
+                );
+            }
+        },
+    }
+}
+
+fn input_reader(input_file: Option<PathBuf>, decompress: bool) -> Result<Box<dyn BufRead>, String> {
+    let input: Box<dyn BufRead> = match input_file {
         Some(input_file) => {
             let file = match File::open(input_file) {
                 Ok(file) => file,
                 _ => {
-                    println!(
-                        "{}\n",
-                        Style::new()
-                            .bold()
-                            .red()
-                            .apply_to("🔥 Cannot open input file")
-                    );
-                    return;
+                    return Err("Cannot open input file".to_string());
                 }
             };
             Box::new(BufReader::new(file))
@@ -76,19 +121,14 @@ fn main() {
         _ => Box::new(BufReader::new(std::io::stdin())),
     };
 
-    let input: Box<dyn BufRead> = if args.decompress {
+    let input: Box<dyn BufRead> = if decompress {
         let gz_decoder = GzDecoder::new(input);
         Box::new(BufReader::new(gz_decoder))
     } else {
         Box::new(input)
     };
 
-    match &args.command {
-        Command::Info => info(input),
-        Command::Scramble => scramble(input),
-    }
-
-    println!()
+    Ok(input)
 }
 
 fn scramble(mut reader: impl BufRead) {

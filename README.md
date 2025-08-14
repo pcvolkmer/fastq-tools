@@ -10,12 +10,13 @@ This application provides the following subcommands
 Usage: fastq-tools [OPTIONS] <COMMAND>
 
 Commands:
-  info      Show information about input
-  scramble  Scramble input data
-  help      Print this message or the help of the given subcommand(s)
+  info          Show information about input
+  grz-metadata  Show GRZ metadata
+  scramble      Scramble input data
+  help          Print this message or the help of the given subcommand(s)
 
 Options:
-  -i, --input <INPUT_FILE>  Input file (optional)
+  -i, --input <INPUT_FILE>  Input file
   -d, --decompress          Decompress input as gzip compressed data
   -h, --help                Print help
   -V, --version             Print version
@@ -43,6 +44,24 @@ fastq-tools --decompress --input file_fastq.gz info
 This will result in output like
 
 ![Info subcommand](docs/info_subcommand.jpg)
+
+### GRZ Metadata
+
+To generate GRZ metadata for a file use:
+
+```shell
+fastq-tools --decompress --input file_fastq.gz grz-metadata
+```
+
+The use of the `--input` argument is required for this sub command.
+If the file is an uncompressed FASTQ file, you can omit the `--decompress` option.
+
+![GRZ Metadata subcommand](docs/grz-metadata_subcommand.jpg)
+
+Supported file types are:
+
+* fastq (full support)
+* bam, bed, vcf (limited support)
 
 ### Scramble
 

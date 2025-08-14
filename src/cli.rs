@@ -7,12 +7,19 @@ use std::path::PathBuf;
 pub struct Args {
     #[command(subcommand)]
     pub(crate) command: Command,
-    #[arg(short = 'i', long = "input", help = "Input file (optional)")]
+    #[arg(
+        short = 'i',
+        long = "input",
+        help = "Input file",
+        group = "metadata",
+        global = true
+    )]
     pub(crate) input_file: Option<PathBuf>,
     #[arg(
         short = 'd',
         long = "decompress",
-        help = "Decompress input as gzip compressed data"
+        help = "Decompress input as gzip compressed data",
+        global = true
     )]
     pub(crate) decompress: bool,
 }
@@ -21,6 +28,8 @@ pub struct Args {
 pub enum Command {
     #[command(about = "Show information about input")]
     Info,
+    #[command(about = "Show GRZ metadata")]
+    GrzMetadata,
     #[command(about = "Scramble input data")]
     Scramble,
 }

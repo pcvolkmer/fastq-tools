@@ -1,6 +1,8 @@
 use crate::scramble_sequence;
+use serde::Serialize;
 use std::fmt::Display;
 use std::str::FromStr;
+use std::string::ToString;
 
 pub enum Header {
     Casava18(Casava18Header),
@@ -241,9 +243,11 @@ impl FromStr for Header {
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Serialize)]
 pub enum Pair {
+    #[serde(rename = "R1")]
     PairedEnd = 1,
+    #[serde(rename = "R2")]
     MatePair = 2,
 }
 
