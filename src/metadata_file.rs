@@ -1,6 +1,6 @@
 use crate::fastq::{Header, Pair};
 use crate::input_reader;
-use crate::metadata_file::MetadataError::{CannotReadFile, ReadError};
+use crate::metadata_file::MetadataError::{CannotReadFile, ReadError, UnsupportedFile};
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -96,9 +96,9 @@ impl Display for MetadataError {
             f,
             "{}",
             match self {
-                MetadataError::CannotReadFile => "Cannot read file".into(),
-                MetadataError::UnsupportedFile => "Unsupported file type".into(),
-                MetadataError::ReadError(err) => format!("Error reading file: {}", err),
+                CannotReadFile => "Cannot read file".into(),
+                UnsupportedFile => "Unsupported file type".into(),
+                ReadError(err) => format!("Error reading file: {}", err),
             }
         )
     }
@@ -110,7 +110,7 @@ impl MetadataFile {
     pub fn read_file(path: PathBuf, decompress: bool) -> Result<MetadataFile, MetadataError> {
         let path = match path.to_str() {
             Some(path) => path,
-            None => return Err(MetadataError::CannotReadFile),
+            None => return Err(CannotReadFile),
         };
 
         let file = File::open(path).map_err(|_| CannotReadFile)?;
@@ -126,7 +126,7 @@ impl MetadataFile {
         {
             FileType::Fastq
         } else {
-            return Err(MetadataError::UnsupportedFile);
+            return Err(UnsupportedFile);
         };
 
         let file_checksum = match fs::read(path) {
