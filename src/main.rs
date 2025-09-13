@@ -10,6 +10,7 @@ use console::Style;
 use flate2::read::GzDecoder;
 use itertools::Itertools;
 use regex::Regex;
+use std::fmt::Display;
 use std::fs::File;
 use std::io::{BufRead, BufReader};
 use std::path::PathBuf;
@@ -221,6 +222,18 @@ fn info(mut reader: impl BufRead) {
         headline_style.apply_to(format!("Found {} complete sequence sets", headers.len()))
     );
 
+    fn grouped_count<T>(it: impl Iterator<Item = T>) -> String
+    where
+        T: Display + Ord,
+    {
+        it.sorted()
+            .chunk_by(|value| value.to_string())
+            .into_iter()
+            .map(|g| format!("   {} ({})", g.0, g.1.count()))
+            .collect::<Vec<String>>()
+            .join("\n")
+    }
+
     // Instruments
 
     println!(
@@ -230,15 +243,7 @@ fn info(mut reader: impl BufRead) {
     );
     println!(
         "{}",
-        headers
-            .iter()
-            .map(|header| header.instrument_name())
-            .sorted()
-            .chunk_by(|value| value.clone())
-            .into_iter()
-            .map(|g| format!("   {} ({})", g.0, g.1.count()))
-            .collect::<Vec<String>>()
-            .join("\n")
+        grouped_count(headers.iter().map(|header| header.instrument_name()))
     );
 
     // Flowcell IDs
@@ -250,15 +255,7 @@ fn info(mut reader: impl BufRead) {
     );
     println!(
         "{}",
-        headers
-            .iter()
-            .filter_map(|header| header.flowcell_id())
-            .sorted()
-            .chunk_by(|value| value.clone())
-            .into_iter()
-            .map(|g| format!("   {} ({})", g.0, g.1.count()))
-            .collect::<Vec<String>>()
-            .join("\n")
+        grouped_count(headers.iter().filter_map(|header| header.flowcell_id()))
     );
 
     // Flowcell Lanes
@@ -268,18 +265,9 @@ fn info(mut reader: impl BufRead) {
         info_style.apply_to("🛈 "),
         headline_style.apply_to("Flowcell lane(s):")
     );
-
     println!(
         "{}",
-        headers
-            .iter()
-            .map(|header| header.flowcell_lane())
-            .sorted()
-            .chunk_by(|value| value.to_string())
-            .into_iter()
-            .map(|g| format!("   {} ({})", g.0, g.1.count()))
-            .collect::<Vec<String>>()
-            .join("\n")
+        grouped_count(headers.iter().map(|header| header.flowcell_lane()))
     );
 
     // Read Orders
@@ -289,21 +277,12 @@ fn info(mut reader: impl BufRead) {
         info_style.apply_to("🛈 "),
         headline_style.apply_to("Read order(s):")
     );
-
     println!(
         "{}",
-        headers
-            .iter()
-            .map(|header| match header.pair_member() {
-                Pair::PairedEnd => "R1",
-                Pair::MatePair => "R2",
-            })
-            .sorted()
-            .chunk_by(|value| value.to_string())
-            .into_iter()
-            .map(|g| format!("   {} ({})", g.0, g.1.count()))
-            .collect::<Vec<String>>()
-            .join("\n")
+        grouped_count(headers.iter().map(|header| match header.pair_member() {
+            Pair::PairedEnd => "R1",
+            Pair::MatePair => "R2",
+        }))
     );
 
     // Read Lengths
@@ -313,16 +292,5 @@ fn info(mut reader: impl BufRead) {
         info_style.apply_to("🛈 "),
         headline_style.apply_to("Read length(s):")
     );
-
-    println!(
-        "{}",
-        read_lens
-            .iter()
-            .sorted()
-            .chunk_by(|value| value.to_string())
-            .into_iter()
-            .map(|g| format!("   {} ({})", g.0, g.1.count()))
-            .collect::<Vec<String>>()
-            .join("\n")
-    )
+    println!("{}", grouped_count(read_lens.iter()));
 }
